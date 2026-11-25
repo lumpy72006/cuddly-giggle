@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>For you</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Nunito:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #dcebd8; --bg2: #cfe3cb;
+    --ink: #24382a; --muted: #55705c; --accent: #2f7d4f;
+    --n1: #f7f3b6; --n2: #c9e8b8; --n3: #ffffff; --n4: #b9dfc9;
+    --hand: "Caveat", "Segoe Script", "Bradley Hand", cursive;
+    --ui: "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; font-family: var(--ui); color: var(--ink);
+    background: radial-gradient(circle at 20% 10%, var(--bg2) 0, transparent 45%), var(--bg);
+    padding: 96px 16px calc(60px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Layout: notes on the left, letter in the middle, notes on the right */
+  .stage { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: 1fr minmax(0, 660px) 1fr; gap: 28px; align-items: start; }
+  .side { position: sticky; top: 100px; display: flex; flex-direction: column; gap: 26px; align-items: center; }
+
+  /* The letter */
+  #letter {
+    position: relative; background: #fbfdf9; padding: 2rem 28px 1.5rem 64px;
+    font-family: var(--hand); font-size: 1.5rem; line-height: 2rem; color: #2c3e32;
+    background-image: linear-gradient(to bottom, transparent calc(2rem - 1px), #cfe3cb 0);
+    background-size: 100% 2rem; background-position: 0 2rem;
+    box-shadow: 0 14px 28px -12px rgba(36, 56, 42, .4);
+    border-left: 3px solid #e3a8a8;
+  }
+  #letter::before { /* margin line */
+    content: ""; position: absolute; left: 48px; top: 0; bottom: 0; width: 2px; background: #9ccaa8; opacity: .7;
+  }
+  #letter::after { /* tape */
+    content: ""; position: absolute; top: -10px; left: 50%; width: 90px; height: 24px;
+    transform: translateX(-50%) rotate(-2deg); background: rgba(255,255,255,.7);
+  }
+  #letter h1 { font-size: 2.6rem; line-height: 2rem; margin: 0 0 2rem; font-weight: 700; }
+  #letter p { margin: 0 0 2rem; }
+  #letter .sign { font-size: 1.9rem; font-weight: 700; }
+
+  /* Sticky notes */
+  .note {
+    position: relative; width: 190px; min-height: 150px; border: 0; padding: 20px 14px 12px;
+    background: var(--c); color: var(--ink); font-family: var(--hand); font-size: 1.3rem; line-height: 1.15;
+    text-align: left; cursor: pointer; transform: rotate(var(--r));
+    box-shadow: 0 8px 14px -6px rgba(36, 56, 42, .35); transition: transform .15s ease;
+  }
+  .note::before {
+    content: ""; position: absolute; top: -6px; left: 50%; width: 46px; height: 16px;
+    transform: translateX(-50%) rotate(-3deg); background: rgba(255,255,255,.55);
+  }
+  .note:hover { transform: rotate(0) scale(1.04); }
+  .note .t { display: block; font-weight: 700; font-size: 1.5rem; margin-bottom: 4px; }
+  .note .hint { display: block; font-family: var(--ui); font-size: .78rem; color: var(--muted); margin-top: 8px; }
+  .note:focus-visible, #play:focus-visible, #close:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+
+  #overlay { position: fixed; inset: 0; z-index: 20; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(36, 56, 42, .55); }
+  #overlay.open { display: flex; }
+  #big {
+    position: relative; width: min(440px, 100%); max-height: 80vh; overflow: auto;
+    background: var(--c, var(--n1)); padding: 34px 26px 26px; font-family: var(--hand);
+    font-size: 1.7rem; line-height: 1.25; transform: rotate(-1.5deg); box-shadow: 0 20px 40px -10px rgba(0,0,0,.5);
+  }
+  #big .t { display: block; font-weight: 700; font-size: 2rem; margin-bottom: 6px; }
+  #bigText { white-space: pre-wrap; }
+  #close { position: absolute; top: 6px; right: 8px; border: 0; background: transparent; font-size: 1.6rem; color: var(--muted); cursor: pointer; padding: 6px 10px; }
+
+
+  /* Player, top right */
+  #player {
+    position: fixed; top: 16px; right: 16px; z-index: 10; display: flex; align-items: center; gap: 12px;
+    width: 270px; padding: 10px 14px; border-radius: 16px; background: #fff;
+    box-shadow: 0 8px 20px -8px rgba(36, 56, 42, .4);
+  }
+  #play { flex: none; width: 48px; height: 48px; border-radius: 50%; border: 0; background: var(--accent); color: #fff; font-size: 1.1rem; cursor: pointer; }
+  #player .meta { min-width: 0; line-height: 1.3; }
+  #player .title { font-weight: 700; }
+  #player .sub { font-size: .85rem; color: var(--muted); }
+
+  /* Teaser shown before the birthday when GATE is on */
+  #teaser { display: none; max-width: 420px; margin: 18vh auto 0; text-align: center; font-family: var(--hand); font-size: 2.2rem; line-height: 1.2; }
+  #teaser small { display: block; font-family: var(--ui); font-size: 1rem; color: var(--muted); margin-top: 10px; }
+  body.gated .stage, body.gated #player { display: none; }
+  body.gated #teaser { display: block; }
+
+  @media (max-width: 1000px) {
+    .stage { display: flex; flex-direction: column; max-width: 680px; }
+    #letter { order: 1; }
+    .side { order: 2; position: static; flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 24px 18px; }
+    .note { width: calc(50% - 12px); min-width: 140px; }
+  }
+  @media (max-width: 820px) {
+    #player { left: 12px; right: 12px; width: auto; top: calc(10px + env(safe-area-inset-top, 0px)); }
+    body { padding-top: 88px; }
+  }
+  @media (max-width: 480px) {
+    #letter { padding: 2rem 16px 1.5rem 44px; font-size: 1.35rem; }
+    #letter::before { left: 32px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .note { transition: none; } }
+</style>
+</head>
+<body>
+
+<div id="teaser">Something opens on your birthday.<small>Come back on the 25th.</small></div>
+
+<div class="stage">
+  <div class="side" id="left"></div>
+
+  <!-- ============ THE LETTER: edit the text between the <article> tags ============ -->
+  <article id="letter">
+    <h1>Happy birthday, bombón.</h1>
+
+    <p>Twenty-one, and still no brows to speak of. Don’t worry, I’m coming to groom them personally. It will be a very short appointment. I’m bringing a magnifying glass.</p>
+
+    <p>I tried to find your song, “Nobody Else” by Mack Lorén. I looked everywhere, I DM’d her for a month while she was very much online, and I got nothing. So I did the only dignified thing left and sang it myself. It’s awful. Press play in the corner anyway. I meant every wrong note.</p>
+
+
+    <p>Remember our first video call? You were so shy. I’m shy too, so you can imagine my surprise. You couldn’t even look me in the eye for the first few minutes. You told me later that was the moment you were really sure you liked me and I was like "me toooo" (in my head). I love that you're able to tell me how you feel about me. Yeah that's what I love about you the most (even tho you could do better).</p>
+
+
+    <p>You love torturing me, you misread what I say on purpose, then sit back and watch me scramble to fix it without striking a nerve. It’s the most stressful entertainment I’ve ever been the subject of, and I’d sign up again tomorrow. Beware tho, I learn quickly</p>
+
+    <p>You make me feel normal about my weird thoughts. I can tell you anything, the ridiculous, the gross, the filthy. I’ll keep it PG here in case anyone is reading over your shoulder.</p>
+
+
+    <p>The notes on the side have the rest of the dumb stuff. Tap them.</p>
+
+
+    <p>Happy birthday bombón. Thank you for filling my life with joy, warmth, and love. Wishing you a year full of happiness and everything you deserve. I wish you could see yourself the way I see you🥺</p>
+
+    <p class="sign">1-hour-call-"disvirgin-er"</p>
+
+  </article>
+  <!-- ============================================================================== -->
+
+  <div class="side" id="right"></div>
+</div>
+
+<div id="overlay" role="dialog" aria-modal="true" aria-label="Note">
+  <div id="big">
+    <button id="close" aria-label="Close note">✕</button>
+    <span class="t" id="bigTitle"></span>
+    <div id="bigText"></div>
+  </div>
+</div>
+
+<div id="player">
+  <button id="play" aria-label="Play song">▶</button>
+  <div class="meta">
+    <div class="title">Nobody Else, sung badly by me</div>
+    <div class="sub">My attempt at the song I couldn’t find</div>
+  </div>
+  <audio id="audio" preload="auto" loop></audio>
+</div>
+
+<script>
+/* ================= EDIT THESE ================= */
+const AUDIO_FILE = "song.m4a";          // use "song.m4a" if you keep the phone's voice memo format
+const GATE       = false;               // true = before BIRTHDAY she only sees "Come back on the 25th"
+const BIRTHDAY   = "2026-11-25";        // YYYY-MM-DD, her local midnight
+
+const NOTES = [
+  { t: "Bombón",      text: "Bombón means sweet treat. You’re my sweet treat." },
+  { t: "The belly",   text: "I’m looking forward to meeting your belly. You say it’s big. I’m reserving the right to love it on sight." },
+  { t: "Oscar",     text: "Tell Oscar I said 'hi' when you go back, and to KEEP AWAY FROM YOUR HAND!" },
+  { t: "Jema and Laila",     text: "Happy birthday 'Jema' and 'Laila' (I know the spellings are probably 100% wrong). It was a pleasure meeting you guys. Looking forward to seeing more of you and holding you in person." },
+  { t: "Reports",     text: "Nobody else has ever been this happy to hear about my toilet visits. Nobody else. See what I did there? It’s the most supportive thing anyone has done for me. To more tales of my visits🥂" },
+  { t: "Lyrics", text: `
+    Three days
+    That's all it took for us to know how much we're worth, babe
+    One hour
+    That's all it took for you to get inside your head,
+    Now you're unsure babe
+    And it's fine
+    You've been through something that makes it hard to trust me
+    One conversation
+    That's all it took for you to judge me
+
+    Makes you like everybody else
+    At first you want me to yourself
+    Things are just too easy
+    Scared I'm like someone else
+    Addicted to the unstable
+    Waiting for me to show my ugly
+    You back away real slow
+    Do anything so you won't love me
+
+    Go fast, go slow
+    Tell me something nobody else will ever know
+    Keep things to yourself, don't wanna get too close
+    Hold me in your arms and don't ever let go
+    Don't take this too far
+    I swear to God I didn't know who you are
+    Now we got ourselves in a predicament
+    Worrying too much, that's how our times spent
+
+    Three seconds
+    That's how fast it takes for me to know that's something wrong
+    Two seconds
+    That's how fast you can deny it all
+    I know you're worried you'll get hurt like all the times before
+    But I feel that way too and even still I'm sure
+
+    You're not like everybody else
+    I still want you for myself
+    Because everything with us is easy
+    At least when we're by ourselves
+    Been hurt by the unstable
+    Not afraid to show our ugly
+    Still you back away real slow
+    Do anything so you won't love me
+
+    Go fast, go slow
+    Tell me something nobody else will ever know
+    Keep things to yourself, don't wanna get too close
+    Hold me in your arms and don't ever let go
+    Don't take this too far
+    I swear to God I didn't know who you are
+    Now we got ourselves in a predicament
+    Worrying too much, that's how our times spent
+
+    Go fast, go slow
+    Hold me in your arms and don't ever let go
+    Don't take this too far
+    Hold me in your arms and don't ever let go
+    `}
+];
+/* ============================================== */
+
+const COLORS = ["var(--n1)", "var(--n2)", "var(--n3)", "var(--n4)"];
+
+/* Gate */
+(function () {
+  if (!GATE || new URLSearchParams(location.search).has("preview")) return;
+  const [y, m, d] = BIRTHDAY.split("-").map(Number);
+  if (new Date() < new Date(y, m - 1, d)) document.body.classList.add("gated");
+})();
+
+/* Notes */
+const overlay = document.getElementById("overlay");
+const big = document.getElementById("big");
+NOTES.forEach((n, i) => {
+  const color = COLORS[i % COLORS.length];
+  const btn = document.createElement("button");
+  btn.className = "note";
+  btn.style.setProperty("--c", color);
+  btn.style.setProperty("--r", (((i * 37) % 9) - 4) * 0.9 + "deg");
+  const t = document.createElement("span"); t.className = "t"; t.textContent = n.t;
+  const hint = document.createElement("span"); hint.className = "hint"; hint.textContent = "tap to read";
+  btn.append(t, hint);
+  btn.addEventListener("click", () => {
+    big.style.setProperty("--c", color);
+    document.getElementById("bigTitle").textContent = n.t;
+    document.getElementById("bigText").textContent = n.text;
+    overlay.classList.add("open");
+    document.getElementById("close").focus();
+  });
+  document.getElementById(i % 2 === 0 ? "left" : "right").appendChild(btn);
+});
+function closeNote() { overlay.classList.remove("open"); }
+document.getElementById("close").addEventListener("click", closeNote);
+overlay.addEventListener("click", e => { if (e.target === overlay) closeNote(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeNote(); });
+
+/* Audio */
+const audio = document.getElementById("audio");
+const play = document.getElementById("play");
+audio.src = AUDIO_FILE;
+play.addEventListener("click", () => {
+  if (audio.paused) audio.play().catch(() => { play.textContent = "▶"; });
+  else audio.pause();
+});
+audio.addEventListener("play",  () => { play.textContent = "❚❚"; play.setAttribute("aria-label", "Pause song"); });
+audio.addEventListener("pause", () => { play.textContent = "▶";  play.setAttribute("aria-label", "Play song"); });
+</script>
+</body>
+</html>
